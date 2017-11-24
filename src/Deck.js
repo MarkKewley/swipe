@@ -10,28 +10,34 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 class Deck extends Component {
 
-  constructor(props) {
+  constructor (props) {
     super(props);
 
     const position = new Animated.ValueXY();
     const panResponder = PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderMove: (event, gesture) => {
-        const { dx, dy } = gesture;
-        position.setValue({x: dx, y: dy})
+        const {dx, dy} = gesture;
+        position.setValue({x: dx, y: dy});
       },
       onPanResponderRelease: () => {
-
+        this.resetPosition();
       }
     });
 
     this.position = position;
-    this.state = { panResponder };
+    this.state = {panResponder};
+  }
+
+  resetPosition () {
+    Animated.spring(this.position, {
+      toValue: {x: 0, y: 0}
+    }).start();
   }
 
   // e.g. if x was at -300 => -90deg, so it maps -500 -> 500 to -120deg -> 120deg by stating
   // it is approx 20% through the inputRange so it should be 20% to the outPutRange
-  getCardStyle() {
+  getCardStyle () {
     // postion.x is how much the position has changed in the x-axis
     const rotate = this.position.x.interpolate({
       // [min, mid, max]
@@ -42,11 +48,11 @@ class Deck extends Component {
 
     return {
       ...this.position.getLayout(),
-      transform: [ {rotate }]
+      transform: [{rotate}]
     };
   }
 
-  renderCards() {
+  renderCards () {
     return this.props.data.map((item, index) => {
       if (index === 0) {
         return (
@@ -59,10 +65,10 @@ class Deck extends Component {
         );
       }
       return this.props.renderCard(item);
-    })
+    });
   }
 
-  render() {
+  render () {
     return (
       <View>
         {this.renderCards()}
