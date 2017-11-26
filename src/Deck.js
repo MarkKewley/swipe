@@ -21,7 +21,6 @@ class Deck extends Component {
       onStartShouldSetPanResponder: () => true,
       onPanResponderMove: (event, gesture) => {
         const {dx, dy} = gesture;
-        console.log(dx);
         position.setValue({x: dx, y: dy});
       },
       onPanResponderRelease: (event, gesture) => {
@@ -42,6 +41,7 @@ class Deck extends Component {
   }
 
   componentWillReceiveProps (nextProps) {
+    // new list data for the Deck, reset the index
     if (nextProps.data !== this.props.data) {
       this.setState({topCardIndex: 0});
     }
@@ -82,7 +82,7 @@ class Deck extends Component {
   // e.g. if x was at -300 => -90deg, so it maps -500 -> 500 to -120deg -> 120deg by stating
   // it is approx 20% through the inputRange so it should be 20% to the outPutRange
   getCardStyle () {
-    // postion.x is how much the position has changed in the x-axis
+    // position.x is how much the position has changed in the x-axis
     const rotate = this.position.x.interpolate({
       // [min, mid, max]
       // the 1.5 makes it rotate a bit less since it takes more DISTANCE to get from low to mid to high for ROTATION
