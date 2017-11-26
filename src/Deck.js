@@ -1,10 +1,5 @@
 import React, { Component } from 'react';
-import {
-  View,
-  Animated,
-  PanResponder, // used for when a user touches the screen and drags their finger
-  Dimensions  // used to retrieve dimensions of the screen the app is running on
-} from 'react-native';
+import { Animated, Dimensions, LayoutAnimation, PanResponder, UIManager, View } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 // 1/4 of the width of the screen
@@ -12,6 +7,11 @@ const SWIPE_THRESHOLD = 0.25 * SCREEN_WIDTH;
 const SWIPE_OUT_DURATION_MILLIS = 250;
 
 class Deck extends Component {
+  static defaultProps = {
+    onSwipeRight: () => {},
+    onSwipeLeft: () => {},
+    renderNoMoreCards: () => {}
+  };
 
   constructor (props) {
     super(props);
@@ -27,10 +27,10 @@ class Deck extends Component {
       onPanResponderRelease: (event, gesture) => {
         if (gesture.dx > SWIPE_THRESHOLD) {
           // swipe right
-          this.forceSwipe(SCREEN_WIDTH)
+          this.forceSwipe('right');
         } else if (gesture.dx < -SWIPE_THRESHOLD) {
           // swipe left
-          this.forceSwipe(-SCREEN_WIDTH)
+          this.forceSwipe('left');
         } else {
           this.resetPosition();
         }
@@ -38,14 +38,39 @@ class Deck extends Component {
     });
 
     this.position = position;
-    this.state = {panResponder};
+    this.state = {panResponder, topCardIndex: 0};
   }
 
-  forceSwipe (x) {
+  componentWillReceiveProps (nextProps) {
+    if (nextProps.data !== this.props.data) {
+      this.setState({topCardIndex: 0});
+    }
+  }
+
+  componentWillUpdate () {
+    // for android
+    UIManager.setLayoutAnimationEnabledExperimental && UIManager.setLayoutAnimationEnabledExperimental(true);
+
+    LayoutAnimation.spring();
+  }
+
+  forceSwipe (direction) {
+    const x = direction === 'right' ? SCREEN_WIDTH : -SCREEN_WIDTH;
     Animated.timing(this.position, {
       toValue: {x, y: 0},
       duration: SWIPE_OUT_DURATION_MILLIS
-    }).start();
+    }).start(() => {
+      // after the animation has finished NOW we want to setup next card
+      this.onSwipeComplete(direction);
+    });
+  }
+
+  onSwipeComplete (direction) {
+    const {onSwipeLeft, onSwipeRight, data} = this.props;
+    const item = data[this.state.index];
+    direction === 'right' ? onSwipeRight(item) : onSwipeLeft(item);
+    this.position.setValue({x: 0, y: 0});
+    this.setState({topCardIndex: this.state.topCardIndex + 1});
   }
 
   resetPosition () {
@@ -72,19 +97,36 @@ class Deck extends Component {
   }
 
   renderCards () {
-    return this.props.data.map((item, index) => {
-      if (index === 0) {
+    const {data, renderNoMoreCards, renderCard} = this.props;
+    const {topCardIndex} = this.state;
+    if (this.state.topCardIndex >= data.length) {
+      return renderNoMoreCards();
+    }
+
+    return data.map((item, index) => {
+      if (index === topCardIndex) {
         return (
           <Animated.View
             key={item.id}
-            style={this.getCardStyle()}
+            style={[this.getCardStyle(), styles.cardStyle]}
             {...this.state.panResponder.panHandlers}>
-            {this.props.renderCard(item)}
+            {renderCard(item)}
           </Animated.View>
         );
+      } else if (index < topCardIndex) {
+        // no longer on the deck
+        return null;
       }
-      return this.props.renderCard(item);
-    });
+
+      // wrap in Animated.View otherwise when this card is re-rendered when the index
+      // is equal to the topCardIndex as an Animated.View we will see flashing images since
+      // this causes react to re-fetch the image.
+      return (
+        <Animated.View key={item.id} style={[styles.cardStyle, {top: (10 * (index - topCardIndex))}]}>
+          {renderCard(item)}
+        </Animated.View>
+      );
+    }).reverse();
   }
 
   render () {
@@ -96,5 +138,13 @@ class Deck extends Component {
   }
 
 }
+
+const styles = {
+  cardStyle: {
+    position: 'absolute', // note with JUST this it spans only the length of the largest element
+    // causes the card to span full width of screen
+    width: SCREEN_WIDTH
+  }
+};
 
 export default Deck;
